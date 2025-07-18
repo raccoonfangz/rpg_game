@@ -207,7 +207,7 @@ def starting():
 ╠══════════════════════════════════════╣
 ║ Made by: Ashton <3                   ║
 ║                                      ║
-║ Version 1.0 - 2025                   ║
+║ Version 1.1 - 2025                   ║
 ╚══════════════════════════════════════╝
            """)
             input("\nPress Enter to return to continue...")
@@ -796,52 +796,9 @@ def attack(opponent_name, opponent):
         print("\n\nCritical Hit!")
         player_attack *= 2
 
+    return player_attack
 # ^-------------------CRITICAL ATTACK--------------------------^
 
-
-# Actual fight result
-    difficulty = calculate_difficulty()
-    opponent["Health"] -= player_attack
-    print(
-        f"\nYou {get_attack_text()} the {opponent_name} and dealt {player_attack} damage!")
-    time.sleep(1.2)
-    clear()
-    opp_damage = opp_attack(opponent)
-    print("-" * 64)
-    print(f"{opponent_name} hits you back and deals {opp_damage} damage!")
-    if opponent["Health"] > 0:
-        print(
-            f"\n{opponent_name}'s remaining health: {hp_bar(opponent['Health'], opponent['Max_Health'])}")
-        print(f"\nYour remaining health: {game_state['PLAYER_HEALTH']}")
-        if game_state['PLAYER_HEALTH'] <= 0:
-            time.sleep(0.5)
-            death()
-            quiet_save_game(game_state)
-        return False
-    else:
-        # Vampirism heal
-        apply_vampirism(player_attack)
-        time.sleep(0.01)
-        clear()
-        base_xp = opponent['XP']
-        xp_gain = base_xp
-        if "experience" in game_state['PLAYER_ENCHANTMENTS']:
-            xp_gain += int(base_xp * 0.15)
-        if "dusty book" in game_state['PLAYER_ENCHANTMENTS']:
-            xp_gain += int(base_xp * 0.25)
-            xp_gain = int(xp_gain)
-        print(f"You defeated the {opponent_name}!")
-        print(f"You gained {opponent['XP']} XP!")
-        coins_earned = reward(opponent)
-        print(f"You gained {coins_earned} coins!")
-        game_state['XP'] += opponent['XP']
-        game_state['TOTAL_XP'] += opponent['XP']
-        game_state['KILL_COUNT'] += 1
-        quiet_save_game(game_state)
-        return True
-
-
-# ^-------------------ATTACK COM.--------------------------^
 
 # flee
 def flee_mechanic():
@@ -1061,6 +1018,7 @@ def combat_mechanic():
     difficulty = calculate_difficulty()
     opponent["Health"] = int(opponent["Base_Health"] * difficulty)
     opponent["Max_Health"] = opponent["Health"]  # <- store max HP
+
     while opponent["Health"] > 0:
         if game_state['GAME_RUNNING'] == False:
             break
@@ -1070,8 +1028,53 @@ def combat_mechanic():
         choice = input("\nEnter your choice: ").lower().strip()
 
         if choice == "1" or choice == "attack":  # Attack
-            if attack(opponent_name, opponent):
-                break
+            # Run the original attack logic and assign to player_attack
+            player_attack = attack(opponent_name, opponent)
+
+            # Continue with manual resolution
+            difficulty = calculate_difficulty()
+            opponent["Health"] -= player_attack
+            print(
+                f"\nYou {get_attack_text()} the {opponent_name} and dealt {player_attack} damage!")
+            time.sleep(1.2)
+            clear()
+            opp_damage = opp_attack(opponent)
+            print("-" * 64)
+            print(f"{opponent_name} hits you back and deals {opp_damage} damage!")
+            game_state['PLAYER_HEALTH'] -= opp_damage
+            game_state['PLAYER_HEALTH'] = max(game_state['PLAYER_HEALTH'], 0)
+
+            if opponent["Health"] > 0:
+                print(
+                    f"\n{opponent_name}'s remaining health: {hp_bar(opponent['Health'], opponent['Max_Health'])}")
+                print(
+                    f"\nYour remaining health: {game_state['PLAYER_HEALTH']}")
+                if game_state['PLAYER_HEALTH'] <= 0:
+                    time.sleep(0.5)
+                    death()
+                    quiet_save_game(game_state)
+                    return
+            else:
+                apply_vampirism(player_attack)
+                time.sleep(0.01)
+                clear()
+                base_xp = opponent['XP']
+                xp_gain = base_xp
+                if "experience" in game_state['PLAYER_ENCHANTMENTS']:
+                    xp_gain += int(base_xp * 0.15)
+                if "dusty book" in game_state['PLAYER_ENCHANTMENTS']:
+                    xp_gain += int(base_xp * 0.25)
+                    xp_gain = int(xp_gain)
+                print(f"You defeated the {opponent_name}!")
+                print(f"You gained {opponent['XP']} XP!")
+                coins_earned = reward(opponent)
+                print(f"You gained {coins_earned} coins!")
+                game_state['XP'] += opponent['XP']
+                game_state['TOTAL_XP'] += opponent['XP']
+                game_state['KILL_COUNT'] += 1
+                quiet_save_game(game_state)
+                return
+
         elif choice == "2" or choice == "defend":  # Defend
             time.sleep(1)
             clear()
@@ -1088,7 +1091,8 @@ def combat_mechanic():
                 quiet_save_game(game_state)
                 return
             clear()
-        elif choice == "3" or choice == "use item" or choice == "item":  # Perishable items
+
+        elif choice in ("3", "use item", "item"):  # Perishable items
             time.sleep(1)
             clear()
             owned_items = game_state['BOUGHT_ITEMS']
@@ -1098,15 +1102,11 @@ def combat_mechanic():
 
             formatted_items = []
             for item, count in counts.items():
-                if count > 1:
-                    formatted_items.append(f"{item} x{count}")
-                else:
-                    formatted_items.append(item)
+                formatted_items.append(
+                    f"{item} x{count}" if count > 1 else item)
 
-            # Item list
-            items_str = "\n".join(word.capitalize()
-                                  for word in formatted_items)
-            print("Your items:\n" + items_str)
+            print("Your items:\n" + "\n".join(word.capitalize()
+                  for word in formatted_items))
             use = input("\nSelect your choice:  ").lower().strip()
 
             if use == "dagger":
@@ -1127,7 +1127,7 @@ def combat_mechanic():
                 clear()
                 quiet_save_game(game_state)
 
-            elif use == "health potion" or use == "health potion":
+            elif use == "health potion":
                 game_state['BOUGHT_ITEMS'].remove("health potion")
                 game_state['PLAYER_HEALTH'] += 25
                 print(
@@ -1147,6 +1147,7 @@ def combat_mechanic():
             flee_mechanic()
             time.sleep(1)
             break
+
         elif choice == "suicide":
             opt2 = input("\nAre you sure? (y/n)  ").lower().strip()
             if opt2 == "y" or opt2 == "yes":
@@ -1162,9 +1163,8 @@ def combat_mechanic():
             print("\nInvalid choice. Try again.")
             time.sleep(1)
             clear()
-
-
 # ^-------------------PVP--------------------------^
+
 
 def achievements():
     misc = game_state['ACHIEVEMENTS']["MISCELLANEOUS"]
@@ -2279,7 +2279,7 @@ def meta_shop():
     print(f"{'2.':<3} {'High stakes gambler - bet limit cap raised to 1,000,000':<40} {'100p':>10}")
     print(f"{'3.':<3} {'Shiny infinity blade - 60-120dmg':<40} {'500p':>10}")
     print(f"{'4.':<3} {'World splitter - 200-400dmg':<40} {'1000p':>10}")
-    print(f"{'5.':<3} {'Auto grind - enable "autogrind" command':<40} {'2000p':>10}")
+    print(f"{'5.':<3} {'Auto grind - enable "autogrind" command':<40} {'1000p':>10}")
 
     option = input("\nSelect your choice:  ").lower().strip()
 
@@ -2607,7 +2607,7 @@ while game_state['GAME_RUNNING'] == True:
 ╠══════════════════════════════════════╣
 ║ Made by: Ashton <3                   ║
 ║                                      ║
-║ Version 1.0 - 2025                   ║
+║ Version 1.1 - 2025                   ║
 ╚══════════════════════════════════════╝
            """)
         input("\nPress Enter to return to continue...")
